@@ -1,0 +1,218 @@
+---
+title: "The Unique Housing Patterns of the Asian Population in the United Kingdom"
+format:
+  html:
+    code-fold: true
+    code-link: true
+    code-tools: true
+    embed-resources: true
+    toc: true
+    number-sections: true
+bibliography: references.bib
+---
+
+# Introduction
+
+This report is to examine the relationships between variables within a dataset gathered from a population census conducted in the United Kingdom in 2021. The data was adapted by Liam Naughton(2023) and can be found in [Population Census data set](https://canvas.wlv.ac.uk/courses/41908/assignments/256209).
+
+```{r}
+#| label: loading packages
+#| code-summary: 'Packages'
+#| message: false
+library(tidyverse)
+library(ggthemes)
+```
+
+```{r}
+#| label: import dataset
+#| include: false
+pop_data <- read_csv("C:/Users/dekea/Downloads/data-1 (3).csv")
+```
+
+# The Data
+
+```{r}
+#| label: view the data
+#| include: false
+```
+
+The dataset consists `r nrow(pop_data)` rows and `r ncol(pop_data)` columns. The dataset was collected with participants filling the columns which include `person_id`, `age`, `mar_stat`(marital status)`,inc`(income`),highest_ed`(highest educational qualification)`,eth`(ethnicity)and `female`(a binary classification where 0 is female and 1 is non-female)`.h8`\`is also a binary variable that investigates if the house is a private accommodation where occupants have exclusive access to all the rooms in the accommodation including the kitchen, bathroom and toilet. 1 is 'no' i.e. 'non_h8' accomodation, while 0 means 'yes' i.e. 'h8'accomodation.
+
+## Data Preprocessing
+
+In this section, data cleaning and transformation was done to make the data clear, concise and suitable for analysis. Some of the null values present in the date were replaced with suitable values, while others were removed. The names of the variables were also modified to ensure consistency.
+
+```{r}
+#| label: data cleaning
+#| include: false
+#| code-fold: true
+# put column names in the right R format
+population <- pop_data |> janitor :: clean_names()
+#check for the null values in the data set
+null_counts <- colSums((is.na(population)))
+null_counts
+# filter data for age less than 16 and check for null values 
+pop_less_than_16 <- population |> 
+  filter(age < 16) |> 
+  select( mar_stat, highest_ed, inc) |> 
+  summarise(
+    mar_stat_null = sum(is.na(mar_stat)),
+    inc_null = sum(is.na(inc)),
+    highest_ed_null = sum(is.na(highest_ed)))
+view(pop_less_than_16)
+```
+
+From the data, all the null values from `mar_stat` and `highest_ed` are from the population aged under 16. For `inc` (income), out of 6173 null values, 6144 are from the population aged under 16. It is likely that these category of people don't earn an income, so the null values for this age group in the income column was replaced with 0. The remaining 29 rows with null values were removed. Also, it is likely that people in this age group are not married, so null values in the `mar_stat` was also replaced with 'Not applicable'. This is to differentiate them from adults that have their marital status as 'never married'. The null values in the highest_ed was also replaced 'with 'Not applicable' as they might include little children that have never been to school.
+
+```{r}
+#| label: To insert values into the columns with null values
+#| include: false
+population$inc <- ifelse(is.na(population$inc), 0, population$inc)
+population$mar_stat <- ifelse(is.na(population$mar_stat), 'Not Applicable', population$mar_stat) 
+population$highest_ed <- ifelse(is.na(population$highest_ed), 'Not Applicable', population$highest_ed) 
+null_counts <- colSums((is.na(population)))
+population <- na.omit(population)
+```
+
+# Investigation and Results
+
+The distribution and relationship between some of the variables were investigated to see the most insightful one. The sections below shows some insightful relationships between the variables.
+
+## Education Distribution Across Ethnic Groups, Grouped by H8 Accomodation
+
+```{r}
+#| label: fig-1
+#| fig-cap: 'Education Distribution Across Ethnic Groups, Grouped by H8 Accommodation' 
+ggplot(population) + 
+  geom_bar(aes(x = eth, fill = highest_ed), position = 'fill')+   facet_wrap(~factor(h8, labels = c('h8', 'non-h8')))+
+  labs(title = ' Education Distribution Across Ethnic Groups, Grouped by  H8 Accomodation', x = 'Eth')
+```
+
+@fig-1 reveals that only Asians stay in non-h8 accommodation i.e. shared accommodation where different households share their kitchen, bathroom and toilets. Other ethnic groups stay only in accommodation where only the household members can use the door that leads to the rooms in the house. The plot also shows that in all the ethnic groups in all households, majority of people have just less than secondary school as their highest education. Hispanics have the largest percentage of Masters degree and Bachelor degree holders across all ethnic groups, while Asians have the lowest percentage of Bachelor and Masters degree holders.
+
+## Income distribution by Age and Ethnicity, Grouped by Highest Education Level and Gender
+
+```{r}
+#| label: fig-2
+#| fig-cap: 'Income distribution by Age and Ethnicity, Grouped by Highest Education Level and Gender'
+#| warning: false
+average_pop <- population |> 
+  group_by(eth, highest_ed, female) |> 
+  summarize(avg_age = mean(age),
+            avg_income = mean(inc))
+ggplot(average_pop, aes(x = avg_age, y = avg_income , color = highest_ed)) + geom_point() +
+  facet_grid(eth ~ factor(female, labels = c('female', 'non-female')))+  
+  labs(title = "Income distribution by Age and Ethnicity, Grouped by Highest Education Level and Gender",
+       x = "Average Age", y = "Average Income", color = "Highest Education Level") +
+  theme_minimal()
+```
+
+From @fig-2, it can be seen that while other ethnic groups have the highest average income for people that have a masters degree for both male and females, , Asians have the highest average income for Bachelors and Masters degree holders. It is also interesting to note that Asian females earn more than non-females with masters and bachelors degrees. It is noteworthy to state that for all the ethnic groups, females earn more than males across all educational levels.The graph also reveals that Asians and Hispanics females between 40 and 50 years earn the highest income, while for other ethnic groups, the highest income female earners are masters degree holders over 50 years old. For those that do not identify as females, across all ethnic groups, the highest income earners are masters degree holders that are under the age of 50 people.
+
+## Income Distribution Across Ethnic Groups, Grouped by Marital Status
+
+```{r}
+#| label: fig-3
+#| fig-cap:  'Income Distribution Across Ethnic Groups Grouped by Marital Status'
+#| fig-subcap:
+#|   - "Average Income by Ethnicity"
+#|   - "Average Income by Ethnicity grouped by marital status"
+#| layout-ncol: 2
+#| column: page
+#| warning: false
+pop <- population |> 
+  group_by(eth, mar_stat) |> 
+  summarise(avg_income = mean(inc))
+ggplot(pop, aes(x = eth, y = avg_income, fill = 'blue'))+
+  geom_bar(stat = 'identity', position = 'dodge')+
+  labs(title = "Income distribution  Across Ethnic Groups",
+       x = "Ethnicity",y = "Average Income")+theme_minimal()
+       
+ggplot(pop, aes(x = eth, y = avg_income, fill = mar_stat))+
+  geom_bar(stat = 'identity', position = 'dodge')+
+  labs(title = "Income distribution  Across Ethnic Groups, Grouped by Marital Status",
+       x = "Ethnicity", y = "Average Income", color = "Marital Status") +  theme_minimal()
+```
+
+From @fig-3-1, the plot reveals that Asians earn the least average income across all ethnic groups. @fig-3-2 shows that married people earn the highest average income across all ethnic group, but married Asians earn the least average income among their married counterparts from other ethnic groups.
+
+## Distribution of Age Groups Across Ethnic Groups, Grouped by Gender
+
+```{r}
+#| label: defining the age groups
+#| include: false
+#define age breaks
+age_breaks <- c(1,16,25,40,65,Inf)
+age_labels <- c('1-16','17-25','26-40','41-64', '65+')
+# Create a new column for age groups
+population$age_group <- cut(population$age, breaks = age_breaks, labels = age_labels, include.lowest = TRUE)
+```
+
+```{r}
+#| label: fig-4
+#| fig-cap: 'Distribution of Age Groups Among Ethnicity Grouped by Gender'
+#| fig-subcap:
+#|   - "Population distribution by Ethicity"
+#|   - "Age Groups Among Ethnicity Grouped by Gender"
+#| layout-ncol: 2
+#| column: page
+ggplot(population, aes(x = eth))+ geom_bar()
+
+ggplot(population, aes(x = eth)) + 
+  geom_bar(aes(fill = age_group), position = 'dodge') +
+  facet_wrap(~ factor(female, labels = c('female', 'non-female')))+
+  labs(title = 'Distribution of Age Groups Among Ethnic Groups by Gender', x = 'Ethnicity', y = 'Count') +
+  theme_minimal() 
+```
+
+From @fig-4-1, the investigation shows that Whites have the highest percentage of the total population. This is not surprising as the census was conducted in the UK where the population are Whites. It is however interesting to note that next to the Whites, the Asians have the highest number of population. This is followed by the Blacks, and there are only very few Hispanics and other ethnic groups in the United Kingdom. Thus, it is safe to say that Asians constitute the highest number of immigrants in the United Kingdom. The column 'age' was categorised into distinct groups to provide a more nuanced understanding of the data based on age ranges. This stratification aims to capture variations in likely income levels and educational qualifications associated with these age groups.From @fig-4-2, the Asians have their highest population between the age 1-16 for both male and females. All ethnic groups except Whites have the smallest percentage of their population within the age group 65 and above. Whites, Blacks and Hispanics have more people within the ages of 41-64
+
+```{r}
+#| label: To investigate ethnic group that has the highest number of children per household. 
+#| echo: true
+#| message: false
+population$child <- ifelse(population$age < 16, 1, 0)
+child_counts <- population |> 
+  group_by(id,  eth) |> 
+  summarize(NumChildren = sum(child))
+# Aggregate data by household and ethnicity, calculating the count of children in each group
+child_counts <- aggregate(child ~ id + eth, data = population, sum)
+# Find the ethnic group with the highest number of children in each household
+max_child_ethnicity <- child_counts[which.max(child_counts$child),'child']
+
+```
+
+The result shows that Asians have the highest number of children `r max_child_ethnicity` , aged 0-16 per household across all households in the UK.
+
+## Income Distribution of Ethnic Groups with Large Households
+
+```{r}
+#| label: To investigate Income of Ethnic groups with Large Households
+#| include: false
+total_people_by_eth <- population |> 
+  group_by(id, eth,inc) |> 
+  summarise(total_people = max(person_id), avg_income = mean(inc)) |> 
+  arrange(desc(total_people))
+total_people_by_eth
+```
+
+```{r}
+#| label: fig-5 
+#| fig-cap: 'Plot showing Relationship between Total Population In an Household, Ethnicity, and Average Income' 
+ggplot(total_people_by_eth, aes(x = total_people, y = avg_income, color = eth)) +
+  geom_point() +
+  labs(title = "Relationship between Total Population, Ethnicity, and Income", x = "Number of People",y = " Average Income",color = "Ethnicity") +
+   scale_y_continuous(labels = scales::number_format(scale = 1e-1)) + theme_minimal()
+```
+
+From @fig-5, it is surprising to see that though Asians have the largest number of people living in the households, the largest households have the least income, and households with the least number of people have higher income. Income decreases with the number of people living in the household.
+
+# Discussion of Results
+
+The UK has become more ethnically diverse in the past few decades[@maylor2019]. From the results @fig-4-1, it can be seen that apart from the Whites, the Asians have the highest population in the United Kingdom. The results @fig-1 also show that Asians are the only ethnic group that live in an accommodation where different households share a bathroom, toilet and kitchen. This form of communal living is a divergence from the typical nuclear family set up, and from investigation, is only peculiar to Asians. It is also noticeable that the Asians, compared to other ethnic groups in other housing arrangement boast larger family sizes as up to 16 people live in an accommodation and they have households that have up to 8 children under the age of 16. A unique attribute of Asian family life that sets Asia apart from the rest of the world, is that Asians reside in large multigenerational households[@esteve] ,[@bongaarts2002]. While it could be considered a cultural practice, as Asian households often reside in large three-generational homes this arrangement contributes to overcrowding. Unfortunately, overcrowding is a significant contributor to homelessness in the UK, as landlords, especially private ones, often evict residents from their living spaces for this reason [@ODPM]. The analysis @fig-3-1 also revealed that Asians households, despite being the household with the largest number of people, earn the least average income among the other ethnic groups. The data revealed that the income decreased with the number of people in each household. This could be attributed to the fact that in the Asian households, there is a higher population of children between the age of 1-16 who are not likely to earn any income because they are still in school.
+
+# Conclusion
+
+In summary, the results of the investigation from the population census data reveal that Asians have a unique culture which makes them different from other ethnic groups in the United Kingdom. This is revealed in their housing choices, the number of people in the households and the number of children they have. This analysis, apart from revealing the unique dynamics of Asian households , show that Asians might be experiencing economic challenges considering that they earn the least income coupled with large households. This opens up the opportunities to explore more peculiarities in the Asian culture and the impact on the economic and housing situations in the UK.
+
+# References
